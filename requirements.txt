@@ -1,0 +1,271 @@
+# API Requirements and Reference Documentation for Portfolio Builder
+
+This document specifies the exact API requirements, endpoint signatures, authentication mechanisms, and expected request/response playbooks for the Portfolio Builder website application.
+
+---
+
+## I. API BASE URL & ARCHITECTURE
+
+- **Development Port Host**: `http://localhost:3000`
+- **Prefix Path**: `/api` (e.g., `http://localhost:3000/api/status`)
+- **Protocol**: RESTful HTTP
+- **Format**: All payloads and responses are in standard JSON format containing `Content-Type: application/json` headers.
+
+---
+
+## II. AUTHENTICATION SYSTEMS
+
+The application supports two forms of authentication:
+1. **Firebase Authentication (Real-time Cloud Integration)**:
+   - Header Required: `Authorization: Bearer <FIREBASE_ID_TOKEN>`
+2. **High-Fidelity Sandbox User persistence (Emulated Team Auth)**:
+   - Header Required: `Authorization: Bearer <USERNAME>` (e.g., `Authorization: Bearer john-doe`)
+   - Allows instant cloud-independent development and local emulation.
+
+---
+
+## III. PUBLIC ENDPOINTS (NO AUTHENTICATION REQUIRED)
+
+### 1. API Status & Statistics
+Provides the health diagnostics, engine state, statistics, and platform configuration.
+- **Method**: `GET`
+- **Endpoint**: `/api/status`
+- **Response**:
+```json
+{
+  "status": "active",
+  "service": "User Portfolio Builder Service",
+  "version": "1.2.0",
+  "stats": {
+    "totalPortfoliosCreated": 15,
+    "databaseProvider": "Local High-Fidelity JSON Persistence",
+    "authProvider": "Firebase Authentication"
+  },
+  "message": "REST API endpoints are healthy. Created portfolios can be viewed at index '/#/:username'."
+}
+```
+
+### 2. Get Full Portfolio Data
+Fetches the designated user's entire configured portfolio (including profile identity, theme, experiences order, experiences list, projects list, and social link configs).
+- **Method**: `GET`
+- **Endpoint**: `/api/portfolios/:username`
+- **Response**:
+```json
+{
+  "username": "john-doe",
+  "displayName": "John Doe",
+  "bio": "Data Scientist & Intelligent Systems Developer",
+  "photoURL": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde",
+  "theme": "sunset",
+  "sectionsOrder": ["experiences", "projects", "socialLinks"],
+  "ownerId": "john-doe-uid",
+  "cvUrl": "https://example.com/john-doe-resume.pdf",
+  "tagline": "Software Engineer & AI Architect",
+  "skills": "React, TypeScript, Python, PyTorch, Node.js",
+  "experiences": [
+    {
+      "id": "exp-101",
+      "role": "Senior Developer",
+      "company": "Acme Systems",
+      "startDate": "2021-06",
+      "endDate": null,
+      "description": "Directed development of high-throughput web architectures",
+      "order": 1
+    }
+  ],
+  "projects": [],
+  "socialLinks": []
+}
+```
+
+### 3. Get Experiences List Only
+- **Method**: `GET`
+- **Endpoint**: `/api/portfolios/:username/experiences`
+
+### 4. Get Projects List Only
+- **Method**: `GET`
+- **Endpoint**: `/api/portfolios/:username/projects`
+
+### 5. Get Social Links Only
+- **Method**: `GET`
+- **Endpoint**: `/api/portfolios/:username/social`
+
+### 6. User Registration (Custom Sandbox Store)
+Registers a new custom persistent user account directly into the backend store to prevent sign-up errors and secure login persistence.
+- **Method**: `POST`
+- **Endpoint**: `/api/auth/register`
+- **Payload**:
+```json
+{
+  "email": "candidate@example.com",
+  "password": "yourpassword",
+  "name": "Jane Developer",
+  "username": "jane-dev"
+}
+```
+- **Response**:
+```json
+{
+  "message": "Successfully registered account",
+  "user": {
+    "uid": "jane-dev-uid",
+    "email": "candidate@example.com",
+    "name": "Jane Developer",
+    "username": "jane-dev"
+  }
+}
+```
+
+### 7. User Login (Sandbox Emulation Verification)
+Authenticates custom sandbox users and returns their profile identity payload.
+- **Method**: `POST`
+- **Endpoint**: `/api/auth/login`
+- **Payload**:
+```json
+{
+  "email": "candidate@example.com",
+  "password": "yourpassword"
+}
+```
+- **Response**:
+```json
+{
+  "message": "Authenticated successfully",
+  "user": {
+    "uid": "jane-dev-uid",
+    "email": "candidate@example.com",
+    "name": "Jane Developer",
+    "username": "jane-dev"
+  }
+}
+```
+
+### 8. List Registered Users
+- **Method**: `GET`
+- **Endpoint**: `/api/auth/users`
+- **Response**: Array of safe, registered sandbox profiles.
+
+---
+
+## IV. AUTHENTICATED ENDPOINTS (AUTHENTICATION HEADER REQUIRED)
+
+Include the `Authorization: Bearer <TOKEN>` header in all requests.
+
+### 9. Create New Portfolio Profile
+Bootstraps an initial candidate web portfolio profile matching the authorized user context.
+- **Method**: `POST`
+- **Endpoint**: `/api/portfolio`
+- **Payload**:
+```json
+{
+  "username": "candidate-handle",
+  "displayName": "Full Name",
+  "bio": "Write brief biography here.",
+  "photoURL": "https://example.com/photo.png",
+  "theme": "sunset",
+  "sectionsOrder": ["experiences", "projects", "socialLinks"],
+  "tagline": "Software Engineer",
+  "skills": "React, TypeScript, CSS",
+  "cvUrl": ""
+}
+```
+
+### 10. Update Portfolio Metadata & Theme Map
+Allows partial or complete visual rebranding, theme updates, bios, or handles.
+- **Method**: `PUT`
+- **Endpoint**: `/api/portfolio`
+- **Payload**:
+```json
+{
+  "theme": "sunset",
+  "bio": "Experienced systems developer and responsive graphic designer.",
+  "skills": "React, Tailwind, Node.js, Express, Python"
+}
+```
+
+### 11. Add Professional Experience Card
+- **Method**: `POST`
+- **Endpoint**: `/api/portfolio/experiences`
+- **Payload**:
+```json
+{
+  "role": "Full-Stack Engineer",
+  "company": "Horizon Tech",
+  "startDate": "2022-09",
+  "endDate": "2024-03",
+  "description": "Engineered real-time web interface streams utilizing WebSockets.",
+  "order": 1
+}
+```
+
+### 12. Modify Professional Experience
+- **Method**: `PUT`
+- **Endpoint**: `/api/portfolio/experiences/:id`
+
+### 13. Remove Experience Card
+- **Method**: `DELETE`
+- **Endpoint**: `/api/portfolio/experiences/:id`
+
+### 14. Add Portfolio Project Box
+- **Method**: `POST`
+- **Endpoint**: `/api/portfolio/projects`
+- **Payload**:
+```json
+{
+  "title": "Quantum Blockchain Tracker",
+  "description": "Visualizing distributed cryptographic nodes in interactive 3D.",
+  "link": "https://github.com/profile/quantum-tracker",
+  "imageURL": "https://images.unsplash.com/photo-1639762681485-074b7f938ba0",
+  "order": 1
+}
+```
+
+### 15. Modify Portfolio Project Box
+- **Method**: `PUT`
+- **Endpoint**: `/api/portfolio/projects/:id`
+
+### 16. Remove Portfolio Project Box
+- **Method**: `DELETE`
+- **Endpoint**: `/api/portfolio/projects/:id`
+
+### 17. Add External Social Connection
+- **Method**: `POST`
+- **Endpoint**: `/api/portfolio/social`
+- **Payload**:
+```json
+{
+  "platform": "GitHub",
+  "url": "https://github.com/my-username",
+  "order": 1
+}
+```
+
+### 18. Adjust Render Sections Order
+- **Method**: `POST`
+- **Endpoint**: `/api/portfolio/order`
+- **Payload**:
+```json
+{
+  "sectionsOrder": ["projects", "experiences", "socialLinks"]
+}
+```
+
+### 19. Generate AI Assistant Suggestion
+Generates highly creative and customized professional text points for experience bullet descriptions using LLM models.
+- **Method**: `POST`
+- **Endpoint**: `/api/ai/suggest`
+- **Payload**:
+```json
+{
+  "type": "experience",
+  "promptText": "optimized SQL relational database indexes",
+  "role": "Database Administrator",
+  "company": "Enterprise Tech"
+}
+```
+- **Response**:
+```json
+{
+  "suggestion": "Accelerated database query runtime efficiency by 42% through the engineering of customized PostgreSQL indexing trees and execution plan modifications."
+}
+```

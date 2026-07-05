@@ -1,0 +1,10 @@
+{
+  "projectId": "placeholder-project-id",
+  "appId": "placeholder-app-id",
+  "apiKey": "placeholder-api-key",
+  "authDomain": "placeholder-auth-domain",
+  "firestoreDatabaseId": "placeholder-database-id",
+  "storageBucket": "placeholder-storage-bucket",
+  "messagingSenderId": "placeholder-messaging-sender-id",
+  "measurementId": ""
+}

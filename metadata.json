@@ -1,0 +1,6 @@
+{
+  "name": "Portfolio API & Builder Dashboard",
+  "description": "A full-stack portfolio builder and customizer with dynamic thematic layouts, live portfolio visualizers, and a complete, authenticated REST API with Firebase validation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

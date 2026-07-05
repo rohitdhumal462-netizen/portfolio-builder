@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}{{ portfolio.displayName }} - Candidate CV Profile{% endblock %}
+
+{% block content %}
+<div class="min-h-screen py-10 transition-colors duration-500 font-sans"
+     :class="{
+        'bg-slate-50 text-slate-800': '{{ theme }}' === 'light',
+        'bg-[#0f172a] text-slate-100': '{{ theme }}' === 'dark',
+        'bg-black text-[#10b981] font-mono': '{{ theme }}' === 'cyber',
+        'bg-[#f1f5f9] text-[#0f172a]': '{{ theme }}' === 'slate'
+     }"
+>
+    <!-- TOP RESUME BAR CONTROLS -->
+    <div class="max-w-3xl mx-auto px-4 mb-6 print:hidden">
+        <div class="bg-white/5 backdrop-blur-xs border border-white/10 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-sm"
+             :class="{
+                'bg-white border-slate-200': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate'
+             }"
+        >
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="text-[10px] font-bold uppercase tracking-wider font-mono opacity-80">Connected Public Link</span>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- PRINT TO PDF BUTTON -->
+                <button 
+                    id="btn_print_pdf_trigger"
+                    onclick="window.print()"
+                    class="bg-[#10b981] hover:bg-[#099268] text-white text-[11px] font-bold py-2 px-4 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                >
+                    <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                    <span>Download CV / Print PDF</span>
+                </button>
+
+                <!-- CV BACK LINK (Only shown if registered) -->
+                {% if cv_url %}
+                <a 
+                    id="btn_raw_download_resume"
+                    href="{{ cv_url }}" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="border border-[#10b981] hover:bg-[#10b981]/10 text-[#10b981] text-[11px] font-bold py-2 px-3 rounded-xl flex items-center gap-1.5 transition"
+                >
+                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                    <span>Original Document</span>
+                </a>
+                {% endif %}
+
+                <a 
+                    href="/dashboard" 
+                    class="text-xs text-slate-400 hover:text-slate-600 font-semibold underline ml-2"
+                >
+                    Workspace &larr;
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN PORTFOLIO CARD LAYOUT -->
+    <article 
+        id="public_cv_card"
+        class="max-w-3xl mx-auto bg-white/5 border border-white/10 rounded-3xl p-8 md:p-12 space-y-10 shadow-2xl relative overflow-hidden print:shadow-none print:border-none print:p-0"
+        :class="{
+            'bg-white border-slate-150 text-slate-800 shadow-md': '{{ theme }}' === 'light',
+            'bg-slate-900/60 border-slate-800 text-slate-100': '{{ theme }}' === 'dark',
+            'bg-black border-2 border-[#10b981] text-[#10b981]': '{{ theme }}' === 'cyber',
+            'bg-white border-0 text-[#0f172a] shadow-sm rounded-none border-t-8 border-slate-900': '{{ theme }}' === 'slate'
+        }"
+    >
+        <!-- BACKGROUND DECORATIONS -->
+        {% if theme == "light" %}
+            <div class="absolute -top-24 -right-24 w-80 h-80 bg-blue-50 rounded-full blur-3xl opacity-60 print:hidden"></div>
+        {% elif theme == "dark" %}
+            <div class="absolute -top-24 -right-24 w-80 h-80 bg-indigo-950/40 rounded-full blur-3xl opacity-60 print:hidden"></div>
+        {% endif %}
+
+        <!-- CANDIDATE HEADER SEGMENT -->
+        <header class="flex flex-col md:flex-row items-center md:items-start text-center md:text-left gap-6 border-b border-white/10 pb-8 relative z-10"
+                :class="{ 'border-slate-100': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate' }"
+        >
+            {% if portfolio.photoURL %}
+                <img 
+                    src="{{ portfolio.photoURL }}" 
+                    class="w-24 h-24 rounded-2xl object-cover shrink-0 shadow-lg border-2 border-white/15"
+                    referrerPolicy="no-referrer"
+                >
+            {% else %}
+                <div class="w-24 h-24 bg-slate-900 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-md border-2 border-white/20">
+                    <i data-lucide="user" class="w-10 h-10"></i>
+                </div>
+            {% endif %}
+
+            <div class="space-y-2 flex-grow">
+                <h1 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight leading-none"
+                    :class="{ 'text-slate-900': '{{ theme }}' === 'light', 'text-black font-mono font-bold tracking-widest uppercase': '{{ theme }}' === 'cyber' }"
+                >
+                    {{ portfolio.displayName }}
+                </h1>
+                
+                <p class="text-xs font-mono font-semibold tracking-wider text-indigo-600 uppercase"
+                   :class="{ 'text-[#10b981]': '{{ theme }}' === 'cyber' }"
+                >
+                    Candidate URL: @{{ portfolio.username }}
+                </p>
+
+                <p class="text-xs md:text-sm font-sans leading-relaxed opacity-85"
+                   :class="{ 'text-slate-500': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate' }"
+                >
+                    {{ portfolio.bio }}
+                </p>
+            </div>
+        </header>
+
+        <!-- DYNAMIC SECTIONS RENDERED BASED ON SECTIONS_ORDER SETTING -->
+        {% for section in sections_order %}
+            
+            <!-- SECTION TYPE A: WORK EXPERIENCES -->
+            {% if section == "experiences" %}
+                <section class="space-y-6">
+                    <div class="flex items-center gap-2 border-b border-white/10 pb-2"
+                         :class="{ 'border-slate-100': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate' }"
+                    >
+                        <i data-lucide="briefcase" class="w-4 h-4 opacity-80 text-indigo-600" :class="{ 'text-[#10b981]': '{{ theme }}' === 'cyber' }"></i>
+                        <h2 class="font-display font-bold text-xs uppercase tracking-widest opacity-90">Experiences & Employment</h2>
+                    </div>
+
+                    {% if not experiences %}
+                        <div class="text-xs opacity-50 py-2 italic">No work experiences detailed.</div>
+                    {% endif %}
+
+                    <div class="space-y-6">
+                        {% for exp in experiences %}
+                            <div class="relative pl-6 border-l-2 border-indigo-100/40"
+                                 :class="{ 'border-[#10b981]/40': '{{ theme }}' === 'cyber' }"
+                            >
+                                <div class="absolute -left-[6px] top-1.5 w-[10px] h-[10px] rounded-full bg-[#10b981]"></div>
+                                
+                                <div class="space-y-1">
+                                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
+                                        <h3 class="font-display font-semibold text-sm tracking-tight"
+                                            :class="{ 'text-slate-900': '{{ theme }}' === 'light', 'font-sans font-extrabold': '{{ theme }}' === 'slate' }"
+                                        >
+                                            {{ exp.role }}
+                                        </h3>
+                                        <span class="text-[10px] font-mono tracking-widest opacity-60">
+                                            {{ exp.startDate }} &mdash; {% if exp.endDate %}{{ exp.endDate }}{% else %}Present{% endif %}
+                                        </span>
+                                    </div>
+
+                                    <p class="text-xs font-bold text-indigo-600 uppercase tracking-wide mt-0.5"
+                                       :class="{ 'text-[#10b981]': '{{ theme }}' === 'cyber' }"
+                                    >
+                                        {{ exp.company }}
+                                    </p>
+
+                                    <p class="text-xs leading-relaxed opacity-80 mt-2 whitespace-pre-line"
+                                       :class="{ 'text-slate-600 font-sans': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate' }"
+                                    >
+                                        {{ exp.description }}
+                                    </p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+            <!-- SECTION TYPE B: DEPLOYED PROJECTS -->
+            {% elif section == "projects" %}
+                <section class="space-y-6">
+                    <div class="flex items-center gap-2 border-b border-white/10 pb-2"
+                         :class="{ 'border-slate-100': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate' }"
+                    >
+                        <i data-lucide="folder-git" class="w-4 h-4 opacity-80 text-indigo-600" :class="{ 'text-[#10b981]': '{{ theme }}' === 'cyber' }"></i>
+                        <h2 class="font-display font-bold text-xs uppercase tracking-widest opacity-90">Projects & Architectures</h2>
+                    </div>
+
+                    {% if not projects %}
+                        <div class="text-xs opacity-50 py-2 italic">No projects recorded.</div>
+                    {% endif %}
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {% for proj in projects %}
+                            <div class="border border-white/5 rounded-2xl p-4 transition bg-white/5 hover:bg-white/10 flex flex-col justify-between"
+                                 :class="{
+                                    'bg-slate-50/50 border-slate-100 hover:bg-slate-50': '{{ theme }}' === 'light',
+                                    'bg-indigo-950/10 border-indigo-950/20': '{{ theme }}' === 'dark',
+                                    'border-[#10b981] bg-black': '{{ theme }}' === 'cyber',
+                                    'border-slate-200 border bg-white rounded-none': '{{ theme }}' === 'slate'
+                                 }"
+                            >
+                                <div class="space-y-2">
+                                    {% if proj.imageURL %}
+                                        <img src="{{ proj.imageURL }}" class="w-full h-24 object-cover rounded-xl mb-2 print:hidden" referrerPolicy="no-referrer">
+                                    {% endif %}
+                                    <h3 class="font-display font-bold text-xs tracking-tight"
+                                        :class="{ 'text-slate-900': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate' }"
+                                    >
+                                        {{ proj.title }}
+                                    </h3>
+                                    <p class="text-[11px] leading-relaxed opacity-75 font-sans"
+                                       :class="{ 'text-slate-500': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate' }"
+                                    >
+                                        {{ proj.description }}
+                                    </p>
+                                </div>
+
+                                {% if proj.link %}
+                                    <div class="pt-3 border-t border-white/5 mt-3"
+                                         :class="{ 'border-slate-100': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate' }"
+                                    >
+                                        <a href="{{ proj.link }}" target="_blank" class="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:underline">
+                                            <span>Explore Project Website</span>
+                                            <i data-lucide="external-link" class="w-3 h-3"></i>
+                                        </a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+            <!-- SECTION TYPE C: SOCIAL NETWORKS AND CHANNELS -->
+            {% elif section == "socialLinks" %}
+                <section class="space-y-4">
+                    <div class="flex items-center gap-2 border-b border-white/10 pb-2"
+                         :class="{ 'border-slate-100': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate' }"
+                    >
+                        <i data-lucide="share2" class="w-4 h-4 opacity-80 text-indigo-600" :class="{ 'text-[#10b981]': '{{ theme }}' === 'cyber' }"></i>
+                        <h2 class="font-display font-bold text-xs uppercase tracking-widest opacity-90">Social Channels & Contact</h2>
+                    </div>
+
+                    {% if not social_links %}
+                        <div class="text-xs opacity-50 py-2 italic">No contact channels connected.</div>
+                    {% endif %}
+
+                    <div class="flex flex-wrap gap-2.5">
+                        {% for soc in social_links %}
+                            <a 
+                                href="{{ soc.url }}" 
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center gap-2 border border-white/10 bg-white/5 px-3 py-1.5 rounded-xl hover:bg-white/10 text-xs transition"
+                                :class="{
+                                    'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700': '{{ theme }}' === 'light' || '{{ theme }}' === 'slate',
+                                    'border-[#10b981] text-[#10b981]': '{{ theme }}' === 'cyber'
+                                }"
+                            >
+                                <span class="font-mono uppercase font-bold text-[10px] text-indigo-600" :class="{ 'text-[#10b981]': '{{ theme }}' === 'cyber' }">{{ soc.platform }}</span>
+                                <span class="opacity-70 text-[10px] truncate max-w-[150px] font-mono">{{ soc.url }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                </section>
+
+            {% endif %}
+        {% endfor %}
+
+    </article>
+</div>
+{% endblock %}

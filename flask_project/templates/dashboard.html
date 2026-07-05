@@ -1,0 +1,818 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Console - Portfolio Builder{% endblock %}
+
+{% block content %}
+<div 
+    id="dashboard_alpine_root"
+    class="min-h-screen py-8 bg-slate-50 font-sans"
+    x-data="{
+        // App State Properties
+        authenticatedUser: {{ user | tojson | safe }},
+        loaded: false,
+        savingState: 'Saved', // 'Saved', 'Saving', 'Modified'
+        
+        // Active Portfolio Schema (Holds local state)
+        portfolio: {
+            username: '',
+            displayName: '',
+            bio: '',
+            photoURL: '',
+            theme: 'light',
+            cvUrl: '',
+            sectionsOrder: ['experiences', 'projects', 'socialLinks']
+        },
+        experiences: [],
+        projects: [],
+        socialLinks: [],
+
+        // Inline modal states
+        modals: {
+            experience: { show: false, editMode: false, id: null, role: '', company: '', startDate: '', endDate: '', description: '' },
+            project: { show: false, editMode: false, id: null, title: '', description: '', link: '', imageURL: '' },
+            social: { show: false, id: null, platform: 'GitHub', url: '' }
+        },
+
+        // API interaction methods
+        async initDashboard() {
+            this.$root.spinner = true;
+            try {
+                let response = await fetch('/api/portfolio');
+                if (response.status === 404) {
+                    // Profile not found - prompt onboarding template initialization
+                    this.portfolio.username = this.authenticatedUser.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                    this.portfolio.displayName = this.authenticatedUser.name;
+                    this.portfolio.photoURL = this.authenticatedUser.picture || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200';
+                    this.portfolio.bio = 'Lead developer shaping interactive web technologies.';
+                    
+                    // Create default baseline profile
+                    await this.saveProfileMetadata(true);
+                } else if (response.ok) {
+                    let data = await response.json();
+                    this.portfolio = {
+                        username: data.username || '',
+                        displayName: data.displayName || '',
+                        bio: data.bio || '',
+                        photoURL: data.photoURL || '',
+                        theme: data.theme || 'light',
+                        cvUrl: data.cvUrl || '',
+                        sectionsOrder: data.sectionsOrder || ['experiences', 'projects', 'socialLinks']
+                    };
+                    this.experiences = data.experiences || [];
+                    this.projects = data.projects || [];
+                    this.socialLinks = data.socialLinks || [];
+                }
+            } catch(e) {
+                this.$root.triggerToast('Error loading active portfolio dataset.', 'error');
+            } finally {
+                this.loaded = true;
+                this.$root.spinner = false;
+                lucide.createIcons();
+            }
+        },
+
+        // 1. Save Profile Metadata (with debouncing helper)
+        async saveProfileMetadata(isOnboarding = false) {
+            this.savingState = 'Saving';
+            try {
+                const response = await fetch('/api/portfolio', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.portfolio)
+                });
+                const responseData = await response.json();
+                if (response.ok) {
+                    this.savingState = 'Saved';
+                    if (!isOnboarding) {
+                        this.$root.triggerToast('Profile updated successfully!', 'success');
+                    }
+                } else {
+                    this.savingState = 'Modified';
+                    this.$root.triggerToast(responseData.error || 'Failed to sync with Firestore.', 'error');
+                }
+            } catch(e) {
+                this.savingState = 'Modified';
+                this.$root.triggerToast('Firestore updates failed.', 'error');
+            }
+        },
+
+        // 2. Experience CRUD Operations
+        openExperienceModal(editItem = null) {
+            if (editItem) {
+                this.modals.experience = {
+                    show: true,
+                    editMode: true,
+                    id: editItem.id,
+                    role: editItem.role,
+                    company: editItem.company,
+                    startDate: editItem.startDate || '',
+                    endDate: editItem.endDate || '',
+                    description: editItem.description || ''
+                };
+            } else {
+                this.modals.experience = {
+                    show: true,
+                    editMode: false,
+                    id: null,
+                    role: '',
+                    company: '',
+                    startDate: '',
+                    endDate: '',
+                    description: ''
+                };
+            }
+        },
+
+        async saveExperience() {
+            if (!this.modals.experience.role || !this.modals.experience.company) {
+                this.$root.triggerToast('Role and Company are required.', 'info');
+                return;
+            }
+            this.$root.spinner = true;
+            try {
+                const isEdit = this.modals.experience.editMode;
+                const url = isEdit ? `/api/portfolio/experiences/${this.modals.experience.id}` : '/api/portfolio/experiences';
+                const method = isEdit ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        role: this.modals.experience.role,
+                        company: this.modals.experience.company,
+                        startDate: this.modals.experience.startDate,
+                        endDate: this.modals.experience.endDate,
+                        description: this.modals.experience.description,
+                        order: this.experiences.length + 1
+                    })
+                });
+
+                if (response.ok) {
+                    this.$root.triggerToast(isEdit ? 'Experience updated!' : 'Experience added successfully!', 'success');
+                    this.modals.experience.show = false;
+                    await this.initDashboard(); // Reload layout
+                } else {
+                    this.$root.triggerToast('Execution failed.', 'error');
+                }
+            } catch(e) {
+                this.$root.triggerToast('Server syncing failed.', 'error');
+            } finally {
+                this.$root.spinner = false;
+            }
+        },
+
+        async deleteExperience(id) {
+            if(!confirm('Are you sure you want to delete this experience?')) return;
+            this.$root.spinner = true;
+            try {
+                const response = await fetch(`/api/portfolio/experiences/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    this.$root.triggerToast('Experience record deleted.', 'success');
+                    await this.initDashboard();
+                } else {
+                    this.$root.triggerToast('Deletion error.', 'error');
+                }
+            } catch(err) {
+                this.$root.triggerToast('Deletion transaction failed.', 'error');
+            } finally {
+                this.$root.spinner = false;
+            }
+        },
+
+        // 3. Project CRUD Operations
+        openProjectModal(editItem = null) {
+            if (editItem) {
+                this.modals.project = {
+                    show: true,
+                    editMode: true,
+                    id: editItem.id,
+                    title: editItem.title,
+                    description: editItem.description,
+                    link: editItem.link || '',
+                    imageURL: editItem.imageURL || ''
+                };
+            } else {
+                this.modals.project = {
+                    show: true,
+                    editMode: false,
+                    id: null,
+                    title: '',
+                    description: '',
+                    link: '',
+                    imageURL: ''
+                };
+            }
+        },
+
+        async saveProject() {
+            if (!this.modals.project.title || !this.modals.project.description) {
+                this.$root.triggerToast('Title and core description are required details.', 'info');
+                return;
+            }
+            this.$root.spinner = true;
+            try {
+                const isEdit = this.modals.project.editMode;
+                const url = isEdit ? `/api/portfolio/projects/${this.modals.project.id}` : '/api/portfolio/projects';
+                const method = isEdit ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: this.modals.project.title,
+                        description: this.modals.project.description,
+                        link: this.modals.project.link,
+                        imageURL: this.modals.project.imageURL,
+                        order: this.projects.length + 1
+                    })
+                });
+
+                if (response.ok) {
+                    this.$root.triggerToast(isEdit ? 'Project specs saved!' : 'Project indexed successfully!', 'success');
+                    this.modals.project.show = false;
+                    await this.initDashboard();
+                } else {
+                    this.$root.triggerToast('Failed to write project context.', 'error');
+                }
+            } catch(e) {
+                this.$root.triggerToast('Database transaction failed.', 'error');
+            } finally {
+                this.$root.spinner = false;
+            }
+        },
+
+        async deleteProject(id) {
+            if(!confirm('Drop this project records from your active layout?')) return;
+            this.$root.spinner = true;
+            try {
+                const response = await fetch(`/api/portfolio/projects/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    this.$root.triggerToast('Project removed.', 'success');
+                    await this.initDashboard();
+                } else {
+                    this.$root.triggerToast('Deletion error.', 'error');
+                }
+            } catch(e) {
+                this.$root.triggerToast('Communication error.', 'error');
+            } finally {
+                this.$root.spinner = false;
+            }
+        },
+
+        // 4. Social Links CRUD
+        openSocialModal() {
+            this.modals.social = { show: true, id: null, platform: 'GitHub', url: '' };
+        },
+
+        async saveSocial() {
+            if (!this.modals.social.url) {
+                this.$root.triggerToast('Destination URL is required.', 'info');
+                return;
+            }
+            this.$root.spinner = true;
+            try {
+                const response = await fetch('/api/portfolio/social', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        platform: this.modals.social.platform,
+                        url: this.modals.social.url,
+                        order: this.socialLinks.length + 1
+                    })
+                });
+
+                if (response.ok) {
+                    this.$root.triggerToast('Social channel secured!', 'success');
+                    this.modals.social.show = false;
+                    await this.initDashboard();
+                } else {
+                    this.$root.triggerToast('Sync failed.', 'error');
+                }
+            } catch(e) {
+                this.$root.triggerToast('Transaction failed.', 'error');
+            } finally {
+                this.$root.spinner = false;
+            }
+        },
+
+        async deleteSocial(id) {
+            this.$root.spinner = true;
+            try {
+                const response = await fetch(`/api/portfolio/social/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    this.$root.triggerToast('Channel deleted.', 'success');
+                    await this.initDashboard();
+                } else {
+                    this.$root.triggerToast('Unexpected API response.', 'error');
+                }
+            } catch(e) {
+                this.$root.triggerToast('API access issue.', 'error');
+            } finally {
+                this.$root.spinner = false;
+            }
+        },
+
+        // 5. Section Reordering controls (Move sectionsOrder array elements)
+        async moveSection(direction, index) {
+            let order = [...this.portfolio.sectionsOrder];
+            if (direction === 'up' && index > 0) {
+                [order[index], order[index - 1]] = [order[index - 1], order[index]];
+            } else if (direction === 'down' && index < order.length - 1) {
+                [order[index], order[index + 1]] = [order[index + 1], order[index]];
+            }
+            this.portfolio.sectionsOrder = order;
+            
+            // Instantly register with backend
+            this.$root.spinner = true;
+            try {
+                const response = await fetch('/api/portfolio/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sectionsOrder: order })
+                });
+                if (response.ok) {
+                    this.$root.triggerToast('Sections orders updated!', 'success');
+                }
+            } catch(e) {
+                this.$root.triggerToast('Failed to save layout arrangement.', 'error');
+            } finally {
+                this.$root.spinner = false;
+            }
+        }
+    }"
+    x-init="initDashboard()"
+>
+    <!-- TOP NAVIGATION BAR -->
+    <header class="bg-white border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-slate-900 border border-slate-800 text-white font-mono font-bold text-[14px] rounded-xl flex items-center justify-center">
+                    P.
+                </div>
+                <div>
+                    <h1 class="font-display font-bold text-sm tracking-tight text-slate-800">Candidate Workspace</h1>
+                    <p class="text-[10px] text-slate-400 font-mono">ROLE: PORTFOLIO_OWNER</p>
+                </div>
+            </div>
+
+            <!-- Global Autosave feedback state pill -->
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-sans font-medium"
+                     :class="{
+                        'bg-emerald-50 text-emerald-700': savingState === 'Saved',
+                        'bg-amber-50 text-amber-700 animate-pulse': savingState === 'Saving',
+                        'bg-rose-50 text-rose-700': savingState === 'Modified'
+                     }"
+                >
+                    <span class="w-1.5 h-1.5 rounded-full" 
+                          :class="{
+                            'bg-emerald-500': savingState === 'Saved',
+                            'bg-amber-500': savingState === 'Saving',
+                            'bg-rose-500': savingState === 'Modified'
+                          }"></span>
+                    <span x-text="savingState === 'Saved' ? '✓ Saved to Firestore' : (savingState === 'Saving' ? 'Saving changes...' : 'Unsaved changes')"></span>
+                </div>
+
+                <a 
+                    id="dash_view_live_btn"
+                    :href="'/' + portfolio.username" 
+                    target="_blank"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-1.5 px-3.5 rounded-lg flex items-center gap-1.5 transition"
+                >
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                    <span>Live Page</span>
+                </a>
+
+                <form action="/auth/logout" method="GET">
+                    <button 
+                        id="dash_logout_btn"
+                        type="submit" 
+                        class="text-xs text-slate-400 hover:text-rose-600 font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                        <span>Sign Out</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTENT BODY CONTAINER -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-show="loaded" x-cloak>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- LEFT COLUMN: Profile editing & dynamic properties (colspan 4) -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- 1. General Profile details -->
+                <div class="bg-white border border-slate-200 shadow-xs rounded-2xl p-6 space-y-4">
+                    <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <i data-lucide="settings" class="w-4 h-4 text-slate-500"></i>
+                        <h2 class="font-display font-bold text-sm text-slate-800 uppercase tracking-wider">Candidate Profile</h2>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Claim Website Link Handle (@username)</label>
+                            <div class="relative flex items-center">
+                                <span class="absolute left-3 font-mono text-xs text-slate-400">/</span>
+                                <input 
+                                    id="input_meta_username"
+                                    type="text" 
+                                    x-model="portfolio.username" 
+                                    @input.debounce.800ms="saveProfileMetadata()"
+                                    class="w-full border border-slate-200 rounded-lg pl-6 pr-3 py-1.5 text-xs font-mono text-indigo-700 font-bold bg-white focus:ring-1 focus:ring-indigo-500 focus:outline-hidden"
+                                    placeholder="johndoe"
+                                >
+                            </div>
+                            <p class="text-[9px] text-slate-400 font-sans mt-1">This determines your shareable URL: <b class="font-mono">domain.com/username</b></p>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Full Professional Name</label>
+                            <input 
+                                id="input_meta_display"
+                                type="text" 
+                                x-model="portfolio.displayName" 
+                                @input.debounce.800ms="saveProfileMetadata()"
+                                class="w-full border border-slate-200 rounded-lg text-xs px-3 py-1.5 text-slate-800 bg-white"
+                                placeholder="Your Name"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Professional Avatar Link (Photo URL)</label>
+                            <input 
+                                id="input_meta_photo"
+                                type="url" 
+                                x-model="portfolio.photoURL" 
+                                @input.debounce.800ms="saveProfileMetadata()"
+                                class="w-full border border-slate-200 rounded-lg text-xs px-3 py-1.5 font-mono text-slate-500 bg-white"
+                                placeholder="https://unsplash..."
+                            >
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Interactive Theme Preset</label>
+                            <select 
+                                id="input_meta_theme"
+                                x-model="portfolio.theme" 
+                                @change="saveProfileMetadata()"
+                                class="w-full border border-slate-200 rounded-lg text-xs px-2.5 py-1.5 bg-white text-slate-700"
+                            >
+                                <option value="light">Classic Professional Light</option>
+                                <option value="dark">Cosmic Slate Dark Slate</option>
+                                <option value="cyber">Brutalist Cyber Green</option>
+                                <option value="slate">Modern Swiss Minimalist Slate</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Recruiter Downloadable CV Document Link</label>
+                            <input 
+                                id="input_meta_cv"
+                                type="url" 
+                                x-model="portfolio.cvUrl" 
+                                @input.debounce.1000ms="saveProfileMetadata()"
+                                class="w-full border border-slate-200 rounded-lg text-xs px-3 py-1.5 font-mono text-indigo-600 bg-indigo-50/10 placeholder-gray-300 focus:outline-hidden"
+                                placeholder="https://drive.google.com/..."
+                            >
+                            <p class="text-[9px] text-indigo-500 font-sans mt-1">Provide a printable copy (e.g., PDF link). Generates a visible <b>Download Resume</b> trigger in live designs!</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Professional Bio / Elevator pitch</label>
+                            <textarea 
+                                id="input_meta_bio"
+                                x-model="portfolio.bio" 
+                                @input.debounce.800ms="saveProfileMetadata()"
+                                rows="3"
+                                class="w-full border border-slate-200 rounded-lg text-xs p-3 text-slate-800 bg-white leading-relaxed"
+                                placeholder="Write 2-3 impact sentences. Use metrics, architectural presets, etc."
+                            ></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Section reordering Widget -->
+                <div class="bg-white border border-slate-200 shadow-xs rounded-2xl p-6 space-y-4">
+                    <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <i data-lucide="list-ordered" class="w-4 h-4 text-slate-500"></i>
+                        <h2 class="font-display font-bold text-sm text-slate-800 uppercase tracking-wider">Dynamic Layout Order</h2>
+                    </div>
+
+                    <p class="text-[11px] text-slate-400 font-sans leading-normal">
+                        Control how recruiters read your expertise. Reorder layout blocks instantly:
+                    </p>
+
+                    <div class="space-y-2">
+                        <template x-for="(sec, idx) in portfolio.sectionsOrder" :key="sec">
+                            <div class="flex items-center justify-between border border-slate-100 bg-slate-5-0/40 p-2.5 rounded-lg text-xs font-semibold">
+                                <span class="capitalize text-slate-700" x-text="sec === 'socialLinks' ? 'Social Channels' : sec"></span>
+                                
+                                <div class="flex items-center gap-1.5">
+                                    <button 
+                                        @click="moveSection('up', idx)" 
+                                        :disabled="idx === 0"
+                                        class="p-1 hover:bg-slate-100 disabled:opacity-30 rounded cursor-pointer"
+                                    >
+                                        ▲
+                                    </button>
+                                    <button 
+                                        @click="moveSection('down', idx)" 
+                                        :disabled="idx === portfolio.sectionsOrder.length - 1"
+                                        class="p-1 hover:bg-slate-100 disabled:opacity-30 rounded cursor-pointer"
+                                    >
+                                        ▼
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: Inner Sections Details Blocks (colspan 8) -->
+            <div class="lg:col-span-8 space-y-8">
+                
+                <!-- A. Experiential details Section card -->
+                <div class="bg-white border border-slate-200 shadow-xs rounded-2xl p-6 md:p-8 space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-2.5">
+                            <i data-lucide="briefcase" class="w-5 h-5 text-indigo-600"></i>
+                            <div>
+                                <h3 class="font-display font-bold text-slate-800 text-sm md:text-base">Work Experiences</h3>
+                                <p class="text-[10px] text-slate-400 font-sans">Specify timelines, impacts, and technologies used.</p>
+                            </div>
+                        </div>
+                        <button 
+                            id="add_experience_trigger"
+                            @click="openExperienceModal()"
+                            class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                        >
+                            <span>+ Add Experience</span>
+                        </button>
+                    </div>
+
+                    <!-- EMPTY EXPERIENCE STATE -->
+                    <template x-if="experiences.length === 0">
+                        <div class="text-center py-8 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                            <i data-lucide="info" class="w-5 h-5 mx-auto text-slate-300"></i>
+                            <h4 class="text-xs font-bold text-slate-500 mt-2 font-display">No experiences recorded yet</h4>
+                            <p class="text-[10px] text-slate-400 max-w-xs mx-auto leading-relaxed mt-1">Specify past workplaces to showcase tenure and execution capability to recruiters.</p>
+                        </div>
+                    </template>
+
+                    <!-- ACTIVE EXPERIENCES ITERATOR -->
+                    <div class="space-y-4">
+                        <template x-for="exp in experiences" :key="exp.id">
+                            <div class="border border-slate-100 rounded-xl p-4 hover:border-slate-200 transition-all bg-slate-50/25 flex flex-col md:flex-row justify-between gap-4">
+                                <div class="space-y-1">
+                                    <h4 class="text-xs font-bold text-slate-800 font-display" x-text="exp.role"></h4>
+                                    <div class="text-[11px] font-semibold text-indigo-600 font-mono" x-text="exp.company"></div>
+                                    <div class="text-[10px] text-slate-400 font-mono">
+                                        <span x-text="exp.startDate"></span> &mdash; <span x-text="exp.endDate ? exp.endDate : 'Present'"></span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 font-sans leading-relaxed mt-2" x-text="exp.description"></p>
+                                </div>
+
+                                <div class="flex items-start md:items-center gap-1">
+                                    <button 
+                                        @click="openExperienceModal(exp)"
+                                        class="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-indigo-600 rounded-lg transition"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button 
+                                        @click="deleteExperience(exp.id)"
+                                        class="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-rose-600 rounded-lg transition"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- B. Project portfolio Section card -->
+                <div class="bg-white border border-slate-200 shadow-xs rounded-2xl p-6 md:p-8 space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-2.5">
+                            <i data-lucide="folder-git" class="w-5 h-5 text-indigo-600"></i>
+                            <div>
+                                <h3 class="font-display font-bold text-slate-800 text-sm md:text-base">Selected Projects</h3>
+                                <p class="text-[10px] text-slate-400 font-sans">Highlight active web links, code repositories, and descriptions.</p>
+                            </div>
+                        </div>
+                        <button 
+                            id="add_project_trigger"
+                            @click="openProjectModal()"
+                            class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                        >
+                            <span>+ Add Project</span>
+                        </button>
+                    </div>
+
+                    <!-- EMPTY PROJECTS STATE -->
+                    <template x-if="projects.length === 0">
+                        <div class="text-center py-8 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                            <i data-lucide="info" class="w-5 h-5 mx-auto text-slate-300"></i>
+                            <h4 class="text-xs font-bold text-slate-500 mt-2 font-display">No projects published yet</h4>
+                            <p class="text-[10px] text-slate-400 max-w-xs mx-auto leading-relaxed mt-1">Indexing live demonstrations builds structural trust with potential colleagues.</p>
+                        </div>
+                    </template>
+
+                    <!-- PROJECTS GRID -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <template x-for="proj in projects" :key="proj.id">
+                            <div class="border border-slate-150 rounded-xl p-4 bg-white hover:shadow-xs transition-all flex flex-col justify-between gap-3">
+                                <div>
+                                    <template x-if="proj.imageURL">
+                                        <img :src="proj.imageURL" class="w-full h-24 object-cover rounded-lg mb-3" referrerPolicy="no-referrer">
+                                    </template>
+                                    <h4 class="text-xs font-bold text-slate-800 font-display" x-text="proj.title"></h4>
+                                    <p class="text-[11px] text-slate-500 mt-1 lines-clamp-3 font-sans leading-relaxed" x-text="proj.description"></p>
+                                    
+                                    <template x-if="proj.link">
+                                        <a :href="proj.link" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-indigo-600 font-semibold mt-2 hover:underline">
+                                            <span>Explore Live Site</span>
+                                            <i data-lucide="external-link" class="w-3 h-3"></i>
+                                        </a>
+                                    </template>
+                                </div>
+
+                                <div class="border-t border-slate-100 pt-2 mt-2 flex justify-end gap-2 text-[11px]">
+                                    <button @click="openProjectModal(proj)" class="text-indigo-600 hover:underline">Edit</button>
+                                    <button @click="deleteProject(proj.id)" class="text-rose-500 hover:underline">Delete</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- C. Social linking directory Section card -->
+                <div class="bg-white border border-slate-200 shadow-xs rounded-2xl p-6 md:p-8 space-y-6">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                        <div class="flex items-center gap-2.5">
+                            <i data-lucide="share2" class="w-5 h-5 text-indigo-600"></i>
+                            <div>
+                                <h3 class="font-display font-bold text-slate-800 text-sm md:text-base">Identity & Social Links</h3>
+                                <p class="text-[10px] text-slate-400 font-sans">Secure your GitHub, LinkedIn, and personal channels.</p>
+                            </div>
+                        </div>
+                        <button 
+                            id="add_social_trigger"
+                            @click="openSocialModal()"
+                            class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold py-1.5 px-3 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                        >
+                            <span>+ Secure Connection</span>
+                        </button>
+                    </div>
+
+                    <!-- EMPTY SOCIAL CONNECTIONS -->
+                    <template x-if="socialLinks.length === 0">
+                        <div class="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                            <h4 class="text-xs font-bold text-slate-500">No social channels resolved</h4>
+                            <p class="text-[10px] text-slate-400 mt-1">Introduce key connections so recruiters can track active portfolios.</p>
+                        </div>
+                    </template>
+
+                    <!-- CHANNELS ITERATOR -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <template x-for="soc in socialLinks" :key="soc.id">
+                            <div class="flex items-center justify-between border border-slate-150 p-3 rounded-xl bg-slate-50/40 text-xs">
+                                <div class="flex items-center gap-2 font-semibold">
+                                    <span class="text-indigo-600 bg-indigo-50/50 px-2 py-1 rounded font-mono" x-text="soc.platform"></span>
+                                    <p class="text-slate-500 truncate max-w-[120px] font-mono" x-text="soc.url"></p>
+                                </div>
+                                <button @click="deleteSocial(soc.id)" class="text-rose-500 hover:text-rose-700 hover:underline">Delete</button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POPUPS: EXPERIENCE FORM MODAL -->
+    <div 
+        x-cloak 
+        x-show="modals.experience.show" 
+        class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4"
+    >
+        <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 md:p-8 space-y-6">
+            <h3 class="font-display font-bold text-slate-800 text-lg border-b border-slate-150 pb-3" x-text="modals.experience.editMode ? 'Edit Experience Specifications' : 'Publish Workplace Tenure'"></h3>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-extrabold uppercase text-slate-400">Company Name</label>
+                        <input id="modal_exp_company" type="text" x-model="modals.experience.company" class="w-full border border-slate-200 rounded-lg text-xs p-2 bg-white" placeholder="Acme Corp">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-extrabold uppercase text-slate-400">Job Role / Title</label>
+                        <input id="modal_exp_role" type="text" x-model="modals.experience.role" class="w-full border border-slate-200 rounded-lg text-xs p-2 bg-white" placeholder="Lead Software Architect">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-extrabold uppercase text-slate-400">Start Date</label>
+                        <input id="modal_exp_start" type="month" x-model="modals.experience.startDate" class="w-full border border-slate-200 rounded-lg text-xs p-2 bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-extrabold uppercase text-slate-400">End Date (Empty for Present)</label>
+                        <input id="modal_exp_end" type="month" x-model="modals.experience.endDate" class="w-full border border-slate-200 rounded-lg text-xs p-2 bg-white">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-extrabold uppercase text-slate-400">Description of Achievements</label>
+                    <textarea id="modal_exp_desc" x-model="modals.experience.description" rows="4" class="w-full border border-slate-200 rounded-lg text-xs p-3 bg-white" placeholder="Outline clear bullet achievements here. Use technical metrics."></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button @click="modals.experience.show = false" class="px-4 py-2 border border-slate-200 text-slate-500 rounded-lg text-xs cursor-pointer">Cancel</button>
+                <button id="modal_exp_save_btn" @click="saveExperience" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold cursor-pointer transition">Commit Archive</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POPUPS: PROJECT FORM MODAL -->
+    <div 
+        x-cloak 
+        x-show="modals.project.show" 
+        class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4"
+    >
+        <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 md:p-8 space-y-6">
+            <h3 class="font-display font-bold text-slate-800 text-lg border-b border-slate-150 pb-3" x-text="modals.project.editMode ? 'Edit Project Index' : 'Add Creative Project Output'"></h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-extrabold uppercase text-slate-400">Project Title</label>
+                    <input id="modal_proj_title" type="text" x-model="modals.project.title" class="w-full border border-slate-200 rounded-lg text-xs p-2 bg-white" placeholder="Nebula Vector DB API">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-extrabold uppercase text-slate-400">Target Web URL (Repository/Deployment)</label>
+                    <input id="modal_proj_link" type="url" x-model="modals.project.link" class="w-full border border-slate-200 rounded-lg text-xs p-2 bg-white font-mono" placeholder="https://github.com/...">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-extrabold uppercase text-slate-400">Illustration Banner Link (Image URL)</label>
+                    <input id="modal_proj_image" type="url" x-model="modals.project.imageURL" class="w-full border border-slate-200 rounded-lg text-xs p-2 bg-white font-mono" placeholder="https://images.unsplash.com/...">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-extrabold uppercase text-slate-400">Project Overview Description</label>
+                    <textarea id="modal_proj_desc" x-model="modals.project.description" rows="3" class="w-full border border-slate-200 rounded-lg text-xs p-3 bg-white" placeholder="What are the architectural pillars of this creative code?"></textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button @click="modals.project.show = false" class="px-4 py-2 border border-slate-200 text-slate-500 rounded-lg text-xs cursor-pointer">Cancel</button>
+                <button id="modal_proj_save_btn" @click="saveProject" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold cursor-pointer transition">Commit Archive</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL POPUPS: SOCIAL CHANNEL ADD MODAL -->
+    <div 
+        x-cloak 
+        x-show="modals.social.show" 
+        class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4"
+    >
+        <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6 space-y-6">
+            <h3 class="font-display font-bold text-slate-800 text-base border-b border-slate-150 pb-2">Link Social Account</h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-[10px] font-extrabold uppercase text-slate-400">Select Platform</label>
+                    <select id="modal_soc_platform" x-model="modals.social.platform" class="w-full border border-slate-200 rounded-lg text-xs p-2 bg-white select-none">
+                        <option>GitHub</option>
+                        <option>LinkedIn</option>
+                        <option>Twitter</option>
+                        <option>Medium</option>
+                        <option>YouTube</option>
+                        <option>Portfolio</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-extrabold uppercase text-slate-400">Exact Web URL Link</label>
+                    <input id="modal_soc_url" type="url" x-model="modals.social.url" class="w-full border border-slate-200 rounded-lg text-xs p-2 bg-white font-mono" placeholder="https://github.com/...">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button @click="modals.social.show = false" class="px-3 py-1.5 border border-slate-200 text-slate-500 rounded-lg text-xs cursor-pointer">Cancel</button>
+                <button id="modal_soc_save_btn" @click="saveSocial" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold cursor-pointer transition">Verify Connection</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

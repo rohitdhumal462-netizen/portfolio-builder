@@ -1,0 +1,167 @@
+I. Public Endpoints (No Auth Required)
+
+1. API Status (Home)
+```bash
+curl -X GET "https://us-central1-products-d644c.cloudfunctions.net/api"
+```
+
+2. Get Full Portfolio Data
+```bash
+curl -X GET "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolios/john-doe"
+```
+
+3. Get Experiences
+```bash
+curl -X GET "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolios/john-doe/experiences"
+```
+
+4. Get Projects
+```bash
+curl -X GET "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolios/john-doe/projects"
+```
+
+5. Get Social Links
+```bash
+curl -X GET "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolios/john-doe/social"
+```
+
+II. Authenticated Endpoints (Firebase ID Token Required)
+(Replace <ID_TOKEN> with your Firebase Auth token)
+
+6. Create New Portfolio
+```bash
+curl -X POST "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "username": "john-doe",
+       "displayName": "John Doe",
+       "bio": "Data Scientist & Cloud Architect",
+       "photoURL": "https://example.com/photo.jpg",
+       "theme": "dark",
+       "sectionsOrder": ["experiences", "projects", "socialLinks"]
+     }'
+```
+
+7. Update Portfolio Metadata & Profile
+```bash
+curl -X PUT "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "theme": "light",
+       "bio": "Senior NLP Engineer"
+     }'
+```
+
+8. Add Experience
+```bash
+curl -X POST "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/experiences" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "role": "Data Scientist",
+       "company": "Acme Corp",
+       "startDate": "2023-01",
+       "endDate": null,
+       "description": "Designed machine learning pipelines.",
+       "order": 1
+     }'
+```
+
+9. Update Experience (PUT - Partial Updates)
+```bash
+curl -X PUT "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/experiences/<EXP_ID>" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "role": "Senior Data Scientist"
+     }'
+```
+
+10. Delete Experience
+```bash
+curl -X DELETE "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/experiences/<EXP_ID>" \
+     -H "Authorization: Bearer <ID_TOKEN>"
+```
+
+11. Add Project
+```bash
+curl -X POST "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/projects" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "title": "Portfolio Web App",
+       "description": "React-based portfolio site.",
+       "link": "https://github.com/example/portfolio",
+       "imageURL": "https://example.com/project.png",
+       "order": 1
+     }'
+```
+
+12. Update Project (PUT - Partial Updates)
+```bash
+curl -X PUT "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/projects/<PROJ_ID>" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "link": "https://github.com/example/super-portfolio"
+     }'
+```
+
+13. Delete Project
+```bash
+curl -X DELETE "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/projects/<PROJ_ID>" \
+     -H "Authorization: Bearer <ID_TOKEN>"
+```
+
+14. Add Social Link
+```bash
+curl -X POST "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/social" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "platform": "GitHub",
+       "url": "https://github.com/johndoe",
+       "order": 1
+     }'
+```
+
+15. Update Social Link (PUT - Partial Updates)
+```bash
+curl -X PUT "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/social/<SOCIAL_ID>" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "url": "https://linkedin.com/in/johndoe"
+     }'
+```
+
+16. Delete Social Link
+```bash
+curl -X DELETE "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/social/<SOCIAL_ID>" \
+     -H "Authorization: Bearer <ID_TOKEN>"
+```
+
+17. Reorder Sections
+```bash
+curl -X POST "https://us-central1-products-d644c.cloudfunctions.net/api/api/portfolio/order" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "sectionsOrder": ["projects", "experiences", "socialLinks"]
+     }'
+```
+
+18. Generate AI Resume Suggestions (POST)
+```bash
+curl -X POST "https://us-central1-products-d644c.cloudfunctions.net/api/api/ai/suggest" \
+     -H "Authorization: Bearer <ID_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "type": "experience",
+       "promptText": "built high throughput rest api using python flask and firebase",
+       "role": "Backend Engineer",
+       "company": "Google"
+     }'
+```

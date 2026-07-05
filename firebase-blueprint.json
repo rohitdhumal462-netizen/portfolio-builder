@@ -1,0 +1,141 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Information about a registered user mapping their auth identity to custom candidate handles.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase standard auth identifier."
+        },
+        "email": {
+          "type": "string",
+          "description": "Normalized email address."
+        },
+        "name": {
+          "type": "string",
+          "description": "Public candidate full display name."
+        },
+        "username": {
+          "type": "string",
+          "description": "Unique alphanumeric candidate profile handle."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of initial account registration."
+        }
+      },
+      "required": ["uid", "email", "name", "username"]
+    },
+    "Portfolio": {
+      "title": "Portfolio",
+      "description": "Candidate portfolio containing bio, skills, resume documents, and item lists.",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "bio": {
+          "type": "string"
+        },
+        "photoURL": {
+          "type": "string"
+        },
+        "theme": {
+          "type": "string"
+        },
+        "sectionsOrder": {
+          "type": "array"
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "cvUrl": {
+          "type": "string"
+        },
+        "tagline": {
+          "type": "string"
+        },
+        "skills": {
+          "type": "string"
+        },
+        "experiences": {
+          "type": "array"
+        },
+        "projects": {
+          "type": "array"
+        },
+        "socialLinks": {
+          "type": "array"
+        }
+      },
+      "required": ["username", "displayName", "ownerId"]
+    },
+    "LoginUser": {
+      "title": "LoginUser",
+      "description": "Historical record or activity log document of a user log-in event.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "loginAt": {
+          "type": "string"
+        }
+      },
+      "required": ["uid", "email", "name", "username", "loginAt"]
+    },
+    "CVAsset": {
+      "title": "CVAsset",
+      "description": "Decoupled massive candidate CV base64 files to ensure high database optimization.",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "cvData": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["username", "cvData"]
+    }
+  },
+  "firestore": {
+    "users/{email}": {
+      "schema": "User",
+      "description": "User profiles indexed by their primary email."
+    },
+    "user_porfolio/{docId}": {
+      "schema": "User",
+      "description": "Collection storing new users registration data."
+    },
+    "login_user/{docId}": {
+      "schema": "LoginUser",
+      "description": "Collection tracking user log-in sessions."
+    },
+    "portfolio_cvs/{username}": {
+      "schema": "CVAsset",
+      "description": "Decoupled candidate CV documents indexed by candidate handles."
+    },
+    "portfolios/{username}": {
+      "schema": "Portfolio",
+      "description": "Developer live portfolios indexed by candidate handles."
+    }
+  }
+}

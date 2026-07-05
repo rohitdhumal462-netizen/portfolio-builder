@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Sign In - Portfolio Builder Platform{% endblock %}
+
+{% block content %}
+<div class="min-h-screen py-16 flex items-center justify-center bg-slate-50 relative overflow-hidden" 
+     x-data="{ 
+        firebaseInited: false,
+        apiKey: '',
+        authDomain: '',
+        projectId: '',
+        
+        initFirebase() {
+            // Load credentials dynamically if entered, or read defaults
+            if (this.apiKey) {
+                try {
+                    const firebaseConfig = {
+                        apiKey: this.apiKey,
+                        authDomain: this.authDomain,
+                        projectId: this.projectId
+                    };
+                    // Inits client side Firebase
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(firebaseConfig);
+                    }
+                    this.firebaseInited = true;
+                    this.$root.triggerToast('Firebase Auth Inited successfully!', 'success');
+                } catch(e) {
+                    this.$root.triggerToast('Firebase init failed: ' + e.message, 'error');
+                }
+            }
+        },
+
+        async triggerMockLogin(uidSimple) {
+            this.$root.spinner = true;
+            try {
+                const response = await fetch('/auth/verify-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_token: uidSimple })
+                });
+                const resData = await response.get_json ? await response.get_json() : await response.json();
+                
+                if (response.ok) {
+                    this.$root.triggerToast('Mock access cookie set!', 'success');
+                    window.location.href = '/dashboard';
+                } else {
+                    this.$root.triggerToast('Auth endpoint error: ' + resData.error, 'error');
+                }
+            } catch(e) {
+                this.$root.triggerToast('Authorization failed.', 'error');
+            } finally {
+                this.$root.spinner = false;
+            }
+        },
+
+        async handleGoogleLogin() {
+            if (!this.firebaseInited) {
+                this.$root.triggerToast('Please configure Client-Side Firebase Keys below to enable social authentication.', 'info');
+                return;
+            }
+            this.$root.spinner = true;
+            const provider = new firebase.auth.GoogleAuthProvider();
+            try {
+                const result = await firebase.auth().signInWithPopup(provider);
+                const idToken = await result.user.getIdToken();
+                
+                // Submit ID token to Flask to establish session cookie
+                const response = await fetch('/auth/verify-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id_token: idToken })
+                });
+                
+                if (response.ok) {
+                    this.$root.triggerToast('Google identity authenticated!', 'success');
+                    window.location.href = '/dashboard';
+                } else {
+                    this.$root.triggerToast('Failed to exchange validation token.', 'error');
+                }
+            } catch (err) {
+                this.$root.triggerToast('Social Auth cancelled or failed: ' + err.message, 'error');
+            } finally {
+                this.$root.spinner = false;
+            }
+        }
+     }"
+>
+    <!-- Background Accents -->
+    <div class="absolute -top-40 -right-40 w-96 h-96 bg-indigo-100 rounded-full blur-3xl opacity-60"></div>
+    <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-emerald-100 rounded-full blur-3xl opacity-60"></div>
+
+    <div class="max-w-md w-full mx-4 relative bg-white border border-slate-200/80 shadow-2xl rounded-3xl p-8 md:p-10 space-y-8 z-10">
+        
+        <div class="text-center space-y-2">
+            <div class="w-12 h-12 bg-slate-900 text-white font-mono font-bold text-lg rounded-2xl flex items-center justify-center mx-auto tracking-tighter select-none shadow-md">
+                P.
+            </div>
+            <h2 class="font-display font-bold text-2xl text-slate-900 tracking-tight mt-4">Developer & Admin Portal</h2>
+            <p class="text-slate-400 text-xs max-w-sm mx-auto font-sans leading-relaxed">
+                Rebuild and craft your professional CV, customize section order dynamically, and download printable PDFs.
+            </p>
+        </div>
+
+        <!-- Google Auth Access button container -->
+        <div class="space-y-4">
+            <button 
+                id="portal_google_auth_btn"
+                @click="handleGoogleLogin"
+                class="w-full py-3 px-4 border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl flex items-center justify-center gap-3 transition-all cursor-pointer font-semibold text-xs shadow-xs"
+            >
+                <!-- SVG Google Icon -->
+                <svg class="h-4 w-4" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.77c-.98.66-2.23 1.06-3.72 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                <span>Authorize with Google</span>
+            </button>
+        </div>
+
+        <div class="relative flex items-center justify-center">
+            <div class="border-t border-slate-150 w-full"></div>
+            <div class="absolute bg-white px-3 text-[10px] uppercase font-mono tracking-widest text-slate-400">or Mock login context</div>
+        </div>
+
+        <!-- Local Mock Developer authentication -->
+        <div class="space-y-3">
+             <button 
+                id="portal_mock_john"
+                @click="triggerMockLogin('john-doe')"
+                class="w-full bg-slate-900 hover:bg-slate-800 text-white py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer shadow-md"
+             >
+                <i data-lucide="user" class="w-4 h-4"></i>
+                <span>Mock @john-doe profile</span>
+             </button>
+
+             <button 
+                id="portal_mock_jane"
+                @click="triggerMockLogin('jane-smith')"
+                class="w-full bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+             >
+                <i data-lucide="user" class="w-4 h-4"></i>
+                <span>Mock @jane-smith profile</span>
+             </button>
+        </div>
+
+        <!-- Firebase configurations configuration drawer fold (For Custom Firebase DB configurations) -->
+        <div class="pt-4 border-t border-slate-100">
+            <details class="group">
+                <summary class="list-none flex items-center justify-between text-[11px] font-semibold text-slate-400 cursor-pointer hover:text-slate-600 select-none">
+                    <span>Configure client-side Firebase Auth keys</span>
+                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 transition-transform group-open:rotate-90"></i>
+                </summary>
+                
+                <div class="space-y-3 mt-4 pt-1">
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">API Key</label>
+                        <input type="text" x-model="apiKey" placeholder="AIzaSy..." class="w-full border border-slate-200 rounded-lg text-xs px-3 py-1.5 focus:ring-1 focus:ring-indigo-500 focus:outline-hidden font-mono text-gray-800">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Auth Domain</label>
+                        <input type="text" x-model="authDomain" placeholder="xxx.firebaseapp.com" class="w-full border border-slate-200 rounded-lg text-xs px-3 py-1.5 focus:ring-1 focus:ring-indigo-500 focus:outline-hidden font-mono text-gray-800">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Project ID</label>
+                        <input type="text" x-model="projectId" placeholder="xxx-project-id" class="w-full border border-slate-200 rounded-lg text-xs px-3 py-1.5 focus:ring-1 focus:ring-indigo-500 focus:outline-hidden font-mono text-gray-800">
+                    </div>
+                    <button 
+                        @click="initFirebase"
+                        class="w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold uppercase rounded-lg tracking-wider"
+                    >
+                        Apply Config
+                    </button>
+                    <p class="text-[9px] text-slate-400 font-sans leading-relaxed">
+                        Inputting your credentials allows social logins to proceed using client side popups directly inside this client application.
+                    </p>
+                </div>
+            </details>
+        </div>
+    </div>
+</div>
+
+<!-- Raw CDN for classical Firebase v8/v9 Compat version so Popup authenticators work without npm bundlers -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+{% endblock %}
