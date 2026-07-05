@@ -1,3 +1,4 @@
+# Frontend / General
 node_modules/
 build/
 dist/
@@ -7,7 +8,17 @@ coverage/
 .env*
 !.env.example
 
-# Firebase & local credentials
+# Python / Flask Backend
+__pycache__/
+*.pyc
+venv/
+
+# VS Code
+*.code-workspace
+
+# Firebase logs & secrets
+firebase-debug.log
+serviceAccountKey.json
 *firebase-adminsdk*.json
 *credentials*.json
 *service-account*.json

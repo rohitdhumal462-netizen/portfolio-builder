@@ -1,20 +1,54 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# AI Portfolio Builder
 
-# Run and deploy your AI Studio app
+A full-stack AI-powered portfolio builder application.
 
-This contains everything you need to run your app locally.
+## Tech Stack
+- **Frontend**: Google AI Studio (React + Vite)
+- **Backend**: Python + Flask & Node (Express)
+- **Database**: Firebase Firestore
+- **Authentication**: Firebase Auth
+- **AI**: Google Gemini API
 
-View your app in AI Studio: https://ai.studio/apps/1977fc62-dade-4e24-9d9e-661325d0e946
+---
+
+## Features
+- User authentication (Firebase Auth validation)
+- Portfolio creation, customization, and management
+- Experience, projects, and social links
+- AI-generated bios and project descriptions (Gemini API)
+
+---
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+### Prerequisites
+- Node.js
+- Python (for Flask backend)
 
-
+### 1. Frontend Setup & Run
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+2. Configure environment variables by copying `.env.example` to `.env` (add your `GEMINI_API_KEY`).
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+### 2. Flask Backend Setup & Run
+1. Navigate to the `flask_project` directory.
+2. Install python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Run the Flask application:
+   ```bash
+   python main.py
+   ```
+
+---
+
+## Live Links
+- **Live Demo**: [https://portfolio-api-builder-dashboard-244422993959.asia-southeast1.run.app](https://portfolio-api-builder-dashboard-244422993959.asia-southeast1.run.app)
+- **API Endpoint**: [https://us-central1-products-d644c.cloudfunctions.net/api/api/status](https://us-central1-products-d644c.cloudfunctions.net/api/api/status)
